@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import InputPanel from '../components/InputPanel'
 import ComparisonView from '../components/ComparisonView'
+import { polishText } from '../services/api'
 import './PolishPage.css'
 
 function PolishPage() {
@@ -11,9 +12,10 @@ function PolishPage() {
   const [config, setConfig] = useState({
     style: 'academic',
     language: 'zh-CN',
-    provider: 'openai'
+    provider: 'doubao' // 默认使用豆包，但保持可选
   })
   const [isPolishing, setIsPolishing] = useState(false)
+  const [error, setError] = useState('')
 
   const handlePolish = async () => {
     if (!originalText.trim()) {
@@ -22,17 +24,35 @@ function PolishPage() {
     }
 
     setIsPolishing(true)
+    setError('')
 
-    // 模拟API调用
-    setTimeout(() => {
-      setPolishedText(`【润色后的文本】\n\n${originalText}\n\n（这是模拟输出，实际使用时请接入真实的AI API）`)
+    try {
+      const result = await polishText({
+        content: originalText,
+        style: config.style,
+        language: config.language,
+        provider: config.provider
+      })
+
+      if (result.success) {
+        setPolishedText(result.polishedText)
+      } else {
+        throw new Error(result.message || '润色失败')
+      }
+    } catch (err) {
+      console.error('润色失败:', err)
+      const errorMessage = err.message || '润色失败，请检查后端服务是否正常运行'
+      setError(errorMessage)
+      alert(errorMessage)
+    } finally {
       setIsPolishing(false)
-    }, 2000)
+    }
   }
 
   const handleClear = () => {
     setOriginalText('')
     setPolishedText('')
+    setError('')
   }
 
   const handleBack = () => {

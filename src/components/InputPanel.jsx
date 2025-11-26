@@ -104,6 +104,7 @@ function InputPanel({ text, onTextChange, config, onConfigChange, onPolish, isPo
                 value={config.provider}
                 onChange={(e) => onConfigChange({ ...config, provider: e.target.value })}
               >
+                <option value="doubao">🚀 豆包 (推荐)</option>
                 <option value="openai">OpenAI GPT-4</option>
                 <option value="claude">Claude 3</option>
                 <option value="gemini">Google Gemini</option>
