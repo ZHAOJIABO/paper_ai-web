@@ -1,6 +1,10 @@
 // API 服务模块 - 处理与后端的通信
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+// 获取 API 基础 URL
+// 生产环境下为空字符串（使用相对路径），开发环境使用 localhost:8080
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL !== undefined
+  ? import.meta.env.VITE_API_BASE_URL
+  : 'http://localhost:8080'
 
 // ============================================
 // 错误码常量
