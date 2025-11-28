@@ -1,6 +1,6 @@
 # AI 论文润色工具
 
-一个简洁、专业的学术论文润色Web应用，采用类 Notion 的设计风格。
+一个简洁、专业的学术论文润色 Web 应用，采用类 Notion 的设计风格。
 
 ## ✨ 特性
 
@@ -10,38 +10,49 @@
 - 🔄 **对比显示** - 原文与润色后内容并排对比
 - 📋 **便捷操作** - 一键复制和下载结果
 - 📱 **响应式设计** - 完美支持桌面端和移动端
+- 👤 **用户认证** - 支持用户注册、登录和认证
+- 📚 **历史记录** - 保存和管理润色历史
 
 ## 🚀 快速开始
 
-### 安装依赖
+### 本地开发
 
 ```bash
+# 安装依赖
 npm install
-```
 
-### 启动开发服务器
-
-```bash
+# 启动开发服务器
 npm run dev
-```
 
-访问 [http://localhost:3000](http://localhost:3000) 查看应用
+# 访问 http://localhost:3000
+```
 
 ### 构建生产版本
 
 ```bash
+# 构建
 npm run build
-```
 
-### 预览生产版本
-
-```bash
+# 预览
 npm run preview
 ```
+
+### 生产环境部署
+
+```bash
+# 首次部署
+./deployment/scripts/deploy-to-docker.sh
+
+# 更新前端代码
+./deployment/scripts/update-frontend.sh
+```
+
+📖 详细部署文档：[docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md)
 
 ## 🛠️ 技术栈
 
 - **React 18** - UI 框架
+- **React Router** - 路由管理
 - **Vite** - 构建工具
 - **CSS3** - 样式（原生 CSS，无额外依赖）
 
@@ -49,43 +60,97 @@ npm run preview
 
 ```
 paper-ai-web/
-├── src/
-│   ├── components/
-│   │   ├── InputPanel.jsx          # 输入面板组件
-│   │   ├── InputPanel.css
-│   │   ├── ComparisonView.jsx      # 对比显示组件
-│   │   └── ComparisonView.css
-│   ├── App.jsx                     # 主应用组件
-│   ├── App.css
-│   ├── main.jsx                    # 入口文件
-│   └── index.css                   # 全局样式
+├── src/                           # 源代码
+│   ├── components/               # UI 组件
+│   │   ├── InputPanel.jsx       # 输入面板
+│   │   ├── ComparisonView.jsx   # 对比显示
+│   │   ├── Login.jsx            # 登录页面
+│   │   ├── Register.jsx         # 注册页面
+│   │   ├── History.jsx          # 历史记录
+│   │   └── *.css                # 组件样式
+│   ├── App.jsx                  # 主应用
+│   ├── main.jsx                 # 入口文件
+│   └── index.css                # 全局样式
+├── deployment/                   # 部署相关
+│   ├── scripts/                 # 部署脚本
+│   │   ├── deploy-to-docker.sh # 完整部署
+│   │   └── update-frontend.sh  # 快速更新
+│   └── configs/                 # 配置文件
+│       ├── nginx-updated.conf   # Nginx 配置
+│       └── docker-compose-updated.yml
+├── docs/                         # 文档
+│   ├── DOCKER_DEPLOYMENT.md     # 部署文档
+│   ├── API_USAGE.md            # API 使用说明
+│   └── FRONTEND_INTEGRATION.md  # 前端集成文档
+├── dist/                         # 构建输出（自动生成）
+├── .env.production              # 生产环境配置
 ├── index.html
 ├── vite.config.js
 └── package.json
 ```
 
-## 💡 配置选项
+## 💡 功能说明
 
-### 润色风格
-- 学术风格 - 适合学术论文
-- 正式风格 - 正式场合用语
-- 简洁风格 - 简明扼要表达
-- 详细风格 - 详尽充分说明
+### 润色功能
+- **润色风格**：学术、正式、简洁、详细
+- **目标语言**：中文、英文、繁体中文
+- **AI 提供商**：豆包大模型
 
-### 目标语言
-- 中文
-- 英文
-- 繁体中文
+### 用户功能
+- 用户注册和登录
+- JWT Token 认证
+- 润色历史记录
+- 历史记录管理（删除、查看详情）
 
-### AI 提供商
-- OpenAI
-- Claude
-- Gemini
-- 通义千问
+## 🌐 API 配置
 
-## 🔌 接入 AI API
+### 开发环境
+```bash
+# Vite 代理配置（vite.config.js）
+proxy: {
+  '/api': 'http://localhost:8080'
+}
+```
 
-当前版本使用模拟数据。要接入真实的 AI API，请修改 src/App.jsx 中的 handlePolish 函数。
+### 生产环境
+```bash
+# .env.production
+VITE_API_BASE_URL=/api
+```
+
+Nginx 会将 `/api` 请求代理到后端服务。
+
+## 🔌 环境变量
+
+创建 `.env` 文件（开发环境）：
+```bash
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+生产环境使用 `.env.production`（已配置）。
+
+## 📖 文档
+
+- [Docker 部署指南](docs/DOCKER_DEPLOYMENT.md)
+- [API 使用说明](docs/API_USAGE.md)
+- [前端集成文档](docs/FRONTEND_INTEGRATION.md)
+
+## 🚀 部署架构
+
+```
+浏览器 (http://45.32.16.207)
+    ↓
+Nginx 容器 (80端口)
+    ├── / → 前端静态文件 (React 应用)
+    └── /api/ → 后端服务 (app:8080)
+```
+
+## 🔄 更新流程
+
+1. 修改代码
+2. 本地测试：`npm run dev`
+3. 快速部署：`./deployment/scripts/update-frontend.sh`
+4. 清空浏览器缓存访问
 
 ## 🎨 设计理念
 
