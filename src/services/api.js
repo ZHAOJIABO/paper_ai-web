@@ -572,3 +572,121 @@ export async function testConnection() {
     return false
   }
 }
+
+// ============================================
+// 论文对比功能相关 API
+// ============================================
+
+/**
+ * 获取对比详情
+ * @param {string} traceId - 润色记录的唯一标识
+ * @returns {Promise<Object>} 对比详情数据
+ */
+export async function getComparisonDetails(traceId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/polish/compare/${traceId}`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    })
+
+    const result = await handleResponse(response)
+    return {
+      success: true,
+      data: result.data,
+      message: result.message,
+      traceId: result.traceId
+    }
+  } catch (error) {
+    console.error('获取对比详情失败:', error)
+    if (error.success === false) {
+      throw error
+    }
+    throw {
+      success: false,
+      message: error.message || '获取对比详情失败'
+    }
+  }
+}
+
+/**
+ * 应用单个修改操作
+ * @param {string} traceId - 润色记录的唯一标识
+ * @param {Object} params - 操作参数
+ * @param {string} params.change_id - 要操作的修改标注 ID
+ * @param {string} params.action - 操作类型：'accept' 或 'reject'
+ * @returns {Promise<Object>} 操作结果
+ */
+export async function applyChangeAction(traceId, { change_id, action }) {
+  try {
+    const requestBody = {
+      change_id,
+      action
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/polish/compare/${traceId}/action`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(requestBody)
+    })
+
+    const result = await handleResponse(response)
+    return {
+      success: true,
+      data: result.data,
+      message: result.message,
+      traceId: result.traceId
+    }
+  } catch (error) {
+    console.error('应用修改操作失败:', error)
+    if (error.success === false) {
+      throw error
+    }
+    throw {
+      success: false,
+      message: error.message || '应用修改操作失败'
+    }
+  }
+}
+
+/**
+ * 批量应用修改操作
+ * @param {string} traceId - 润色记录的唯一标识
+ * @param {Object} params - 批量操作参数
+ * @param {string} params.action - 批量操作类型：'accept_all' 或 'reject_all'
+ * @param {Array<string>} [params.change_ids] - 可选的修改 ID 列表
+ * @returns {Promise<Object>} 批量操作结果
+ */
+export async function applyBatchAction(traceId, { action, change_ids }) {
+  try {
+    const requestBody = {
+      action
+    }
+
+    if (change_ids && change_ids.length > 0) {
+      requestBody.change_ids = change_ids
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/polish/compare/${traceId}/batch-action`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(requestBody)
+    })
+
+    const result = await handleResponse(response)
+    return {
+      success: true,
+      data: result.data,
+      message: result.message,
+      traceId: result.traceId
+    }
+  } catch (error) {
+    console.error('批量应用修改操作失败:', error)
+    if (error.success === false) {
+      throw error
+    }
+    throw {
+      success: false,
+      message: error.message || '批量应用修改操作失败'
+    }
+  }
+}

@@ -10,6 +10,7 @@ function PolishPage() {
   const navigate = useNavigate()
   const [originalText, setOriginalText] = useState('')
   const [polishedText, setPolishedText] = useState('')
+  const [traceId, setTraceId] = useState(null)
   const [config, setConfig] = useState({
     style: 'academic',
     language: 'zh-CN',
@@ -36,10 +37,13 @@ function PolishPage() {
         provider: config.provider
       })
 
-      // 新API响应格式: { success, data: { polished_content, ... }, message, traceId }
+      // 新API响应格式: { success, data: { trace_id, polished_content, ... }, message, traceId(request_id) }
       if (result.success && result.data) {
         setPolishedText(result.data.polished_content)
-        console.log('润色成功, TraceID:', result.traceId)
+        // 使用 data.trace_id 用于后续查询润色记录
+        setTraceId(result.data.trace_id)
+        console.log('润色成功, Trace ID:', result.data.trace_id)
+        console.log('Request ID (用于日志追踪):', result.traceId)
         console.log('使用的提供商:', result.data.provider_used)
         console.log('使用的模型:', result.data.model_used)
       } else {
@@ -58,6 +62,7 @@ function PolishPage() {
   const handleClear = () => {
     setOriginalText('')
     setPolishedText('')
+    setTraceId(null)
     setError('')
   }
 
@@ -69,6 +74,7 @@ function PolishPage() {
     // 使用历史记录的内容
     setOriginalText(record.original_content || '')
     setPolishedText(record.polished_content || '')
+    setTraceId(record.trace_id || null)
 
     // 更新配置
     setConfig({
@@ -111,6 +117,7 @@ function PolishPage() {
         <ComparisonView
           originalText={originalText}
           polishedText={polishedText}
+          traceId={traceId}
           onBack={handleClear}
         />
       )}
