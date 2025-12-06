@@ -1,0 +1,253 @@
+/* 版本标签页容器 */
+.version-tabs-container {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+/* 标签页组 */
+.version-tabs {
+  display: flex;
+  gap: 12px;
+  padding: 8px;
+  background: var(--background-light, #f5f5f5);
+  border-radius: 12px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* 单个标签 */
+.version-tab {
+  flex: 1;
+  padding: 12px 16px;
+  background: white;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.version-tab:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.version-tab.active {
+  border-color: var(--tab-color, #2196F3);
+  background: linear-gradient(135deg,
+    rgba(var(--tab-color-rgb, 33, 150, 243), 0.05) 0%,
+    rgba(var(--tab-color-rgb, 33, 150, 243), 0.02) 100%);
+  box-shadow: 0 2px 8px rgba(var(--tab-color-rgb, 33, 150, 243), 0.2);
+}
+
+.version-tab.error {
+  background: #ffebee;
+  border-color: #ef5350;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.version-tab.loading {
+  cursor: wait;
+  opacity: 0.8;
+}
+
+.version-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 标签头部 */
+.tab-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.tab-icon {
+  font-size: 20px;
+}
+
+.tab-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* 标签描述 */
+.tab-description {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.loading-text {
+  color: #2196F3;
+  animation: pulse 1.5s infinite;
+}
+
+.error-text {
+  color: #ef5350;
+}
+
+/* 统计信息 */
+.tab-stats {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.stat-item {
+  font-size: 11px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-item::before {
+  content: '•';
+  color: var(--tab-color, #2196F3);
+}
+
+/* 加载进度条 */
+.version-loading-bar {
+  margin-top: 16px;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.loading-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progress-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-item span {
+  min-width: 80px;
+  font-size: 12px;
+  color: #666;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #e0e0e0;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.progress-fill.active {
+  background: linear-gradient(90deg, #2196F3 0%, #64B5F6 50%, #2196F3 100%);
+  background-size: 200% 100%;
+  animation: loading 1.5s linear infinite;
+}
+
+.progress-fill.complete {
+  background: #4CAF50;
+  width: 100% !important;
+}
+
+/* 错误消息 */
+.version-error-message {
+  margin-top: 12px;
+  padding: 12px;
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #c62828;
+  font-size: 14px;
+}
+
+.error-icon {
+  font-size: 18px;
+}
+
+/* 动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes loading {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .version-tabs {
+    flex-direction: column;
+  }
+
+  .version-tab {
+    width: 100%;
+  }
+
+  .tab-stats {
+    justify-content: space-around;
+  }
+}
+
+/* 深色主题支持 */
+@media (prefers-color-scheme: dark) {
+  .version-tabs {
+    background: #1e1e1e;
+  }
+
+  .version-tab {
+    background: #2a2a2a;
+    color: #e0e0e0;
+  }
+
+  .version-tab.active {
+    background: linear-gradient(135deg,
+      rgba(var(--tab-color-rgb, 33, 150, 243), 0.1) 0%,
+      rgba(var(--tab-color-rgb, 33, 150, 243), 0.05) 100%);
+  }
+
+  .tab-label {
+    color: #e0e0e0;
+  }
+
+  .tab-description {
+    color: #999;
+  }
+
+  .version-loading-bar {
+    background: #2a2a2a;
+  }
+
+  .progress-bar {
+    background: #444;
+  }
+}

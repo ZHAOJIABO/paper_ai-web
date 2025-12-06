@@ -49,6 +49,7 @@ function PolishHistory({ isOpen, onClose, onSelectRecord }) {
         trace_id: record.TraceID,
         original_content: record.OriginalContent,
         polished_content: record.PolishedContent,
+        final_content: record.FinalContent, // 添加 final_content 字段
         style: record.Style,
         language: record.Language,
         provider: record.Provider,
@@ -226,7 +227,7 @@ function PolishHistory({ isOpen, onClose, onSelectRecord }) {
                             onClose()
                           }}
                         >
-                          使用此记录
+                          查看此记录
                         </button>
                       </>
                     ) : (

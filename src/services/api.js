@@ -181,8 +181,40 @@ async function handleResponse(response) {
   const contentType = response.headers.get('content-type')
   const isJson = contentType && contentType.includes('application/json')
 
+  // 先检查 HTTP 状态码
+  if (!response.ok) {
+    const text = await response.text()
+    console.error('HTTP 错误:', {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: contentType,
+      responseText: text.substring(0, 200)
+    })
+
+    // 根据状态码提供更友好的错误提示
+    if (response.status === 404) {
+      throw new Error(`接口不存在 (404): 请检查后端是否已实现该接口`)
+    } else if (response.status === 401) {
+      throw new Error(`未授权 (401): 请重新登录`)
+    } else if (response.status === 403) {
+      throw new Error(`权限不足 (403): 您没有权限访问此功能`)
+    } else if (response.status >= 500) {
+      throw new Error(`服务器错误 (${response.status}): 请稍后重试或联系管理员`)
+    } else {
+      throw new Error(`请求失败 (${response.status}): ${response.statusText}`)
+    }
+  }
+
   if (!isJson) {
-    throw new Error('服务器响应格式错误')
+    // 尝试读取响应文本以提供更详细的错误信息
+    const text = await response.text()
+    console.error('服务器响应格式错误:', {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: contentType,
+      responseText: text.substring(0, 200) // 只显示前200个字符
+    })
+    throw new Error(`服务器响应格式错误 (${response.status}): ${text.substring(0, 100)}`)
   }
 
   const data = await response.json()
@@ -463,6 +495,83 @@ export async function polishText({ content, style = 'academic', language = 'en',
 }
 
 /**
+ * 调用多版本论文润色 API
+ * @param {Object} params - 请求参数
+ * @param {string} params.content - 需要润色的文本内容，最多10000字符
+ * @param {string} [params.style] - 润色风格 (academic, formal, concise)，默认academic
+ * @param {string} [params.language] - 目标语言 (zh, en)，默认en
+ * @param {string} [params.provider] - AI 提供商 (doubao, claude)，可选
+ * @param {Array<string>} [params.versions] - 指定版本 (conservative, balanced, aggressive)，不指定则生成全部
+ * @returns {Promise<Object>} 多版本润色结果
+ */
+export async function polishTextMultiVersion({ content, style = 'academic', language = 'en', provider, versions }) {
+  try {
+    // 将语言代码转换为后端需要的格式
+    const langCode = language.startsWith('zh') ? 'zh' : language.startsWith('en') ? 'en' : 'en'
+
+    const requestBody = {
+      content,
+      style,
+      language: langCode
+    }
+
+    // provider 是可选的
+    if (provider) {
+      requestBody.provider = provider
+    }
+
+    // versions 是可选的
+    if (versions && versions.length > 0) {
+      requestBody.versions = versions
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/polish/multi`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(requestBody),
+      // 设置30秒超时
+      signal: AbortSignal.timeout(30000)
+    })
+
+    const result = await handleResponse(response)
+
+    // 后端已经返回正确的 snake_case 格式，直接使用
+    return {
+      success: true,
+      data: result.data,
+      message: result.message,
+      traceId: result.traceId
+    }
+  } catch (error) {
+    console.error('多版本论文润色失败:', error)
+
+    // 处理超时错误
+    if (error.name === 'AbortError') {
+      throw {
+        success: false,
+        message: '请求超时，请稍后重试'
+      }
+    }
+
+    if (error.success === false) {
+      // 处理特定错误码
+      if (error.code === 40300) {
+        throw {
+          ...error,
+          message: '您还未开通多版本润色功能，请联系管理员'
+        }
+      }
+      throw error
+    }
+
+    throw {
+      success: false,
+      message: error.message || '多版本润色失败，请稍后重试'
+    }
+  }
+}
+
+/**
  * 查询润色记录列表
  * @param {Object} params - 查询参数
  * @param {number} [params.page] - 页码，默认1
@@ -578,13 +687,20 @@ export async function testConnection() {
 // ============================================
 
 /**
- * 获取对比详情
+ * 获取对比详情（支持多版本）
  * @param {string} traceId - 润色记录的唯一标识
+ * @param {string} version - 可选的版本类型 (conservative/balanced/aggressive)
  * @returns {Promise<Object>} 对比详情数据
  */
-export async function getComparisonDetails(traceId) {
+export async function getComparisonDetails(traceId, version = null) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/polish/compare/${traceId}`, {
+    // 构建URL，如果有version参数则添加到查询字符串
+    let url = `${API_BASE_URL}/api/v1/polish/compare/${traceId}`
+    if (version) {
+      url += `?version=${version}`
+    }
+
+    const response = await fetch(url, {
       method: 'GET',
       headers: getAuthHeaders()
     })
@@ -687,6 +803,38 @@ export async function applyBatchAction(traceId, { action, change_ids }) {
     throw {
       success: false,
       message: error.message || '批量应用修改操作失败'
+    }
+  }
+}
+
+/**
+ * 选择多版本润色中的一个版本
+ * @param {string} traceId - 多版本润色返回的追踪ID
+ * @param {string} version - 要选择的版本类型 (conservative/balanced/aggressive)
+ * @returns {Promise<Object>} 选择结果
+ */
+export async function selectVersion(traceId, version) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/polish/select-version/${traceId}?version=${version}`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    })
+
+    const result = await handleResponse(response)
+    return {
+      success: true,
+      data: result.data,
+      message: result.message,
+      traceId: result.traceId
+    }
+  } catch (error) {
+    console.error('选择版本失败:', error)
+    if (error.success === false) {
+      throw error
+    }
+    throw {
+      success: false,
+      message: error.message || '选择版本失败'
     }
   }
 }

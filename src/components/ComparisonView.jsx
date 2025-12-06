@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getComparisonDetails, applyChangeAction, applyBatchAction } from '../services/api'
 import './ComparisonView.css'
 
-function ComparisonView({ originalText, polishedText, traceId, onBack }) {
+function ComparisonView({ originalText, polishedText, traceId, onBack, selectedVersion, multiVersionData, originalLength, readOnly = false }) {
   const [comparisonData, setComparisonData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -15,15 +15,27 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
     } else {
       setLoading(false)
     }
-  }, [traceId])
+  }, [traceId, selectedVersion])
 
   const loadComparisonData = async () => {
     try {
       setLoading(true)
-      const result = await getComparisonDetails(traceId)
+      // 如果有 selectedVersion，传递给 API
+      const result = await getComparisonDetails(traceId, selectedVersion)
       if (result.success && result.data) {
         setComparisonData(result.data)
-        setCurrentContent(result.data.polished_content)
+        // 只读模式：使用 final_content（用户最终确认的内容）
+        // 编辑模式：使用 polished_content（AI 润色的原始内容）
+        const content = readOnly
+          ? (result.data.final_content || result.data.polished_content)
+          : result.data.polished_content
+
+        console.log('只读模式:', readOnly)
+        console.log('final_content:', result.data.final_content)
+        console.log('polished_content:', result.data.polished_content)
+        console.log('使用的内容:', content)
+
+        setCurrentContent(content)
       } else {
         setError('无法加载对比数据')
       }
@@ -36,12 +48,13 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
   }
 
   const handleChangeClick = (changeId) => {
-    if (!comparisonData) return
+    if (!comparisonData || readOnly) return
     const change = comparisonData.annotations.find(c => c.id === changeId)
     setSelectedChange(change)
   }
 
   const handleAcceptChange = async (changeId) => {
+    if (readOnly) return
     try {
       const result = await applyChangeAction(traceId, {
         change_id: changeId,
@@ -60,6 +73,7 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
   }
 
   const handleRejectChange = async (changeId) => {
+    if (readOnly) return
     try {
       const result = await applyChangeAction(traceId, {
         change_id: changeId,
@@ -77,6 +91,7 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
   }
 
   const handleAcceptAll = async () => {
+    if (readOnly) return
     try {
       const result = await applyBatchAction(traceId, {
         action: 'accept_all'
@@ -115,6 +130,11 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
   }
 
   const highlightText = (content, annotations) => {
+    // 添加内容空值检查
+    if (!content) {
+      return <span></span>
+    }
+
     if (!annotations || annotations.length === 0) {
       return <span>{content}</span>
     }
@@ -233,7 +253,7 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
             返回编辑
           </button>
           <h2 className="comparison-title">
-            ✨ 对比结果
+            ✨ {selectedVersion ? `对比结果 (${getVersionName(selectedVersion)})` : '对比结果'}
             <span className="success-badge">✓ 润色完成</span>
           </h2>
         </div>
@@ -263,13 +283,13 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
             <div className="panel-header">
               <h3 className="panel-title">
                 <span className="title-icon">✨</span>
-                润色后
+                {selectedVersion ? `润色后 (${getVersionName(selectedVersion)})` : '润色后'}
               </h3>
               <div className="panel-actions">
                 <button className="action-btn primary" onClick={() => handleCopy(polishedText)}>
                   📋 复制
                 </button>
-                <button className="action-btn primary" onClick={() => handleDownload(polishedText, 'polished.txt')}>
+                <button className="action-btn primary" onClick={() => handleDownload(polishedText, `polished_${selectedVersion || 'default'}.txt`)}>
                   💾 下载
                 </button>
               </div>
@@ -283,10 +303,25 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
     )
   }
 
+  // 版本名称映射
+  function getVersionName(version) {
+    const names = {
+      conservative: '保守版本',
+      balanced: '平衡版本',
+      aggressive: '激进版本'
+    }
+    return names[version] || version
+  }
+
   // 有对比数据的完整视图
-  const pendingChanges = comparisonData.annotations.filter(a => a.status === 'pending')
-  const acceptedChanges = comparisonData.annotations.filter(a => a.status === 'accepted')
-  const rejectedChanges = comparisonData.annotations.filter(a => a.status === 'rejected')
+  // 添加空值检查，避免在数据加载前访问 annotations
+  const pendingChanges = comparisonData ? comparisonData.annotations.filter(a => a.status === 'pending') : []
+  const acceptedChanges = comparisonData ? comparisonData.annotations.filter(a => a.status === 'accepted') : []
+  const rejectedChanges = comparisonData ? comparisonData.annotations.filter(a => a.status === 'rejected') : []
+
+  // 无论是否只读模式，都显示所有的 annotations
+  // 只读模式只是禁用交互操作，但显示逻辑一致
+  const displayAnnotations = comparisonData ? comparisonData.annotations : []
 
   return (
     <div className="comparison-view enhanced">
@@ -299,12 +334,12 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
         </button>
         <div className="header-center">
           <h2 className="comparison-title">
-            ✨ 智能对比
+            ✨ 智能对比{readOnly && ' (查看模式)'}
           </h2>
           <div className="stats-summary">
             <span className="stat-item">
               <span className="stat-label">修改总数:</span>
-              <span className="stat-value">{comparisonData.metadata.total_changes}</span>
+              <span className="stat-value">{comparisonData?.metadata?.total_changes || 0}</span>
             </span>
             <span className="stat-item">
               <span className="stat-label">待处理:</span>
@@ -320,7 +355,7 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
             </span>
           </div>
         </div>
-        {pendingChanges.length > 0 && (
+        {!readOnly && pendingChanges.length > 0 && (
           <button className="accept-all-btn" onClick={handleAcceptAll}>
             ✓ 全部接受
           </button>
@@ -336,13 +371,13 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
                 原文
               </h3>
               <div className="panel-actions">
-                <button className="action-btn" onClick={() => handleCopy(comparisonData.original_content)}>
+                <button className="action-btn" onClick={() => handleCopy(comparisonData?.original_content || '')}>
                   📋 复制
                 </button>
               </div>
             </div>
             <div className="text-content">
-              <div className="text-display">{comparisonData.original_content}</div>
+              <div className="text-display">{comparisonData?.original_content || ''}</div>
             </div>
           </div>
 
@@ -350,7 +385,7 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
             <div className="panel-header">
               <h3 className="panel-title">
                 <span className="title-icon">✨</span>
-                润色后（高亮显示修改）
+                {readOnly ? '润色后' : '润色后（高亮显示修改）'}
               </h3>
               <div className="panel-actions">
                 <button className="action-btn primary" onClick={() => handleCopy(currentContent)}>
@@ -362,99 +397,101 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
               </div>
             </div>
             <div className="text-content">
-              <div className="text-display highlighted">
-                {highlightText(currentContent, comparisonData.annotations)}
+              <div className={`text-display ${readOnly ? '' : 'highlighted'}`}>
+                {readOnly ? currentContent : highlightText(currentContent, displayAnnotations)}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="detail-panel">
-          <div className="panel-header">
-            <h3 className="panel-title">修改详情</h3>
+        {!readOnly && (
+          <div className="detail-panel">
+            <div className="panel-header">
+              <h3 className="panel-title">修改详情</h3>
+            </div>
+            <div className="detail-content">
+              {!selectedChange ? (
+                <div className="empty-state">
+                  <p>👆 点击高亮文本查看修改详情</p>
+                  <div className="legend">
+                    <h4>图例说明:</h4>
+                    <div className="legend-item">
+                      <span className="legend-color" style={{ backgroundColor: '#FFE082' }}></span>
+                      <span>词汇优化</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-color" style={{ backgroundColor: '#A5D6A7' }}></span>
+                      <span>语法修正</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-color" style={{ backgroundColor: '#90CAF9' }}></span>
+                      <span>结构调整</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="change-detail">
+                  <div className="change-type-badge" data-type={selectedChange.type}>
+                    {selectedChange.type === 'vocabulary' && '📝 词汇'}
+                    {selectedChange.type === 'grammar' && '✏️ 语法'}
+                    {selectedChange.type === 'structure' && '🔧 结构'}
+                  </div>
+
+                  <div className="change-section">
+                    <h4>原文</h4>
+                    <div className="text-box original">{selectedChange.original_text}</div>
+                  </div>
+
+                  <div className="change-section">
+                    <h4>修改后</h4>
+                    <div className="text-box polished">{selectedChange.polished_text}</div>
+                  </div>
+
+                  <div className="change-section">
+                    <h4>修改理由</h4>
+                    <p className="reason-text">{selectedChange.reason}</p>
+                  </div>
+
+                  <div className="change-meta">
+                    <div className="meta-item">
+                      <span className="meta-label">置信度:</span>
+                      <span className="meta-value">{(selectedChange.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="meta-item">
+                      <span className="meta-label">影响:</span>
+                      <span className="meta-value">{selectedChange.impact}</span>
+                    </div>
+                    <div className="meta-item">
+                      <span className="meta-label">状态:</span>
+                      <span className={`status-badge ${selectedChange.status}`}>
+                        {selectedChange.status === 'pending' && '⏳ 待处理'}
+                        {selectedChange.status === 'accepted' && '✅ 已接受'}
+                        {selectedChange.status === 'rejected' && '❌ 已拒绝'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedChange.status === 'pending' && (
+                    <div className="change-actions">
+                      <button
+                        className="action-btn accept"
+                        onClick={() => handleAcceptChange(selectedChange.id)}
+                      >
+                        ✓ 接受修改
+                      </button>
+                      <button
+                        className="action-btn reject"
+                        onClick={() => handleRejectChange(selectedChange.id)}
+                      >
+                        ✗ 拒绝修改
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="detail-content">
-            {!selectedChange ? (
-              <div className="empty-state">
-                <p>👆 点击高亮文本查看修改详情</p>
-                <div className="legend">
-                  <h4>图例说明:</h4>
-                  <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: '#FFE082' }}></span>
-                    <span>词汇优化</span>
-                  </div>
-                  <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: '#A5D6A7' }}></span>
-                    <span>语法修正</span>
-                  </div>
-                  <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: '#90CAF9' }}></span>
-                    <span>结构调整</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="change-detail">
-                <div className="change-type-badge" data-type={selectedChange.type}>
-                  {selectedChange.type === 'vocabulary' && '📝 词汇'}
-                  {selectedChange.type === 'grammar' && '✏️ 语法'}
-                  {selectedChange.type === 'structure' && '🔧 结构'}
-                </div>
-
-                <div className="change-section">
-                  <h4>原文</h4>
-                  <div className="text-box original">{selectedChange.original_text}</div>
-                </div>
-
-                <div className="change-section">
-                  <h4>修改后</h4>
-                  <div className="text-box polished">{selectedChange.polished_text}</div>
-                </div>
-
-                <div className="change-section">
-                  <h4>修改理由</h4>
-                  <p className="reason-text">{selectedChange.reason}</p>
-                </div>
-
-                <div className="change-meta">
-                  <div className="meta-item">
-                    <span className="meta-label">置信度:</span>
-                    <span className="meta-value">{(selectedChange.confidence * 100).toFixed(0)}%</span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">影响:</span>
-                    <span className="meta-value">{selectedChange.impact}</span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">状态:</span>
-                    <span className={`status-badge ${selectedChange.status}`}>
-                      {selectedChange.status === 'pending' && '⏳ 待处理'}
-                      {selectedChange.status === 'accepted' && '✅ 已接受'}
-                      {selectedChange.status === 'rejected' && '❌ 已拒绝'}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedChange.status === 'pending' && (
-                  <div className="change-actions">
-                    <button
-                      className="action-btn accept"
-                      onClick={() => handleAcceptChange(selectedChange.id)}
-                    >
-                      ✓ 接受修改
-                    </button>
-                    <button
-                      className="action-btn reject"
-                      onClick={() => handleRejectChange(selectedChange.id)}
-                    >
-                      ✗ 拒绝修改
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="comparison-footer">
@@ -463,28 +500,28 @@ function ComparisonView({ originalText, polishedText, traceId, onBack }) {
             <div className="stat-icon">📊</div>
             <div className="stat-info">
               <div className="stat-title">词汇优化</div>
-              <div className="stat-number">{comparisonData.statistics.vocabulary_changes}</div>
+              <div className="stat-number">{comparisonData?.statistics?.vocabulary_changes || 0}</div>
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-icon">✏️</div>
             <div className="stat-info">
               <div className="stat-title">语法修正</div>
-              <div className="stat-number">{comparisonData.statistics.grammar_changes}</div>
+              <div className="stat-number">{comparisonData?.statistics?.grammar_changes || 0}</div>
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-icon">🔧</div>
             <div className="stat-info">
               <div className="stat-title">结构调整</div>
-              <div className="stat-number">{comparisonData.statistics.structure_changes}</div>
+              <div className="stat-number">{comparisonData?.statistics?.structure_changes || 0}</div>
             </div>
           </div>
           <div className="stat-card highlight">
             <div className="stat-icon">📈</div>
             <div className="stat-info">
               <div className="stat-title">学术评分提升</div>
-              <div className="stat-number">+{comparisonData.metadata.academic_score_improvement.toFixed(1)}%</div>
+              <div className="stat-number">+{comparisonData?.metadata?.academic_score_improvement?.toFixed(1) || '0.0'}%</div>
             </div>
           </div>
         </div>
